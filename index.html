@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<title>X4 xDrive35i · OBD Dashboard</title>
+<style>
+:root{
+  --bg:#0b0d10;--panel:#14181d;--panel2:#1b2027;--line:#262c35;--text:#e8ecf1;--muted:#8a94a3;
+  --accent:#3d8bfd;--ok:#2fbf71;--warn:#f0a020;--bad:#ef4b4b;--m-red:#e4002b;--m-blue:#1c69d4;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:5;background:rgba(11,13,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 14px 0}
+.top{display:flex;align-items:center;gap:10px}
+.brand{flex:1;min-width:0}
+.brand b{display:block;font-size:16px;letter-spacing:.2px}
+.brand small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.stripe{height:3px;width:42px;border-radius:2px;background:linear-gradient(90deg,var(--m-blue) 0 33%,#0a2a66 33% 66%,var(--m-red) 66%);margin-bottom:6px}
+.pill{font-size:12px;padding:4px 9px;border-radius:999px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.pill.on{background:rgba(47,191,113,.15);color:var(--ok)}
+.pill.demo{background:rgba(240,160,32,.15);color:var(--warn)}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 13px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.danger{color:var(--bad);border-color:rgba(239,75,75,.4)}
+button:disabled{opacity:.45;cursor:default}
+nav{display:flex;gap:4px;margin-top:10px}
+nav button{flex:1;border:0;border-radius:0;background:none;color:var(--muted);padding:10px 0;border-bottom:2px solid transparent}
+nav button.act{color:var(--text);border-bottom-color:var(--accent)}
+main{padding:14px;max-width:1100px;margin:0 auto 60px}
+section{display:none}section.act{display:block}
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}
+.gauge{text-align:center;position:relative}
+.gauge svg{width:100%;max-width:240px;display:block;margin:0 auto}
+.gauge .v{position:absolute;left:0;right:0;top:48%;font:600 30px/1 var(--mono)}
+.gauge .u{position:absolute;left:0;right:0;top:66%;color:var(--muted);font-size:12px}
+.gauge .t{color:var(--muted);font-size:12px;margin-top:-6px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer;position:relative;overflow:hidden}
+.tile.sel{border-color:var(--accent)}
+.tile .n{font-size:12px;color:var(--muted)}
+.tile .x{font:600 22px/1.2 var(--mono);margin-top:2px}
+.tile .x small{font:12px var(--mono);color:var(--muted);margin-left:3px}
+.tile svg{width:100%;height:26px;display:block;margin-top:4px}
+.tile.warn .x{color:var(--warn)}.tile.bad .x{color:var(--bad)}
+.tile.na{opacity:.4}
+.banner{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;margin-bottom:12px;font-size:14px;background:var(--panel);border:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+.chartwrap{margin-top:12px}
+.chartwrap canvas{width:100%;height:220px;display:block}
+.charthead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.charthead b{font-size:14px}.charthead span{color:var(--muted);font-size:12px;font-family:var(--mono)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 0 8px;font-weight:600}
+.dtc{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.dtc:last-child{border-bottom:0}
+.dtc code{font:600 15px var(--mono);background:var(--panel2);padding:3px 7px;border-radius:6px;flex:none}
+.dtc .d{font-size:14px}.dtc .k{font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;padding:8px 0}
+.trip{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.trip:last-child{border-bottom:0}
+.trip .i{flex:1;min-width:0}.trip .i b{font-size:14px;display:block}.trip .i span{font-size:12px;color:var(--muted)}
+.trip button{padding:6px 10px;font-size:13px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-family:var(--mono);word-break:break-all}
+#log{font:12px/1.5 var(--mono);color:var(--muted);background:#07090b;border-radius:10px;padding:10px;max-height:220px;overflow:auto;white-space:pre-wrap}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.note b{color:var(--text)}
+@media(min-width:760px){.gauges{grid-template-columns:1fr 1fr 2fr}.gauges .chartwrap{margin-top:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand"><div class="stripe"></div><b>X4 xDrive35i</b><small id="sub">F26 · N55 3.0L turbo · not connected</small></div>
+    <span class="pill" id="status">Offline</span>
+    <button class="primary" id="btnConnect">Connect</button>
+  </div>
+  <nav>
+    <button class="act" data-tab="live">Live</button>
+    <button data-tab="faults">Faults</button>
+    <button data-tab="trips">Trips</button>
+    <button data-tab="setup">Setup</button>
+  </nav>
+</header>
+
+<main>
+<!-- LIVE -->
+<section id="live" class="act">
+  <div class="banner" id="health"><span class="dot"></span><span>Connect the adapter or start demo mode from Setup.</span></div>
+  <div class="gauges">
+    <div class="card gauge" id="g-rpm"></div>
+    <div class="card gauge" id="g-speed"></div>
+    <div class="card chartwrap">
+      <div class="charthead"><b id="chartTitle">Engine speed</b><span id="chartStats"></span></div>
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+  <div class="tiles" id="tiles"></div>
+</section>
+
+<!-- FAULTS -->
+<section id="faults">
+  <div class="banner" id="milBanner"><span class="dot"></span><span>Fault status unknown — read codes to check.</span></div>
+  <div class="row">
+    <button class="primary" id="btnRead">Read codes</button>
+    <button class="danger" id="btnClear">Clear codes</button>
+  </div>
+  <h3>Stored (confirmed)</h3><div class="card" id="dtcStored"><div class="empty">Not read yet.</div></div>
+  <h3>Pending</h3><div class="card" id="dtcPending"><div class="empty">Not read yet.</div></div>
+  <h3>Permanent</h3><div class="card" id="dtcPerm"><div class="empty">Not read yet.</div></div>
+  <h3>Fault history</h3><div class="card" id="dtcHistory"><div class="empty">No scans saved.</div></div>
+  <p class="note">Standard OBD-II reads <b>engine and emissions</b> faults (DME). BMW body, chassis, airbag and transmission modules need a BMW-specific app such as BimmerLink with the same adapter.</p>
+</section>
+
+<!-- TRIPS -->
+<section id="trips">
+  <div class="card chartwrap" style="margin-top:0">
+    <div class="charthead"><b id="tripChartTitle">Select a trip</b><span id="tripChartStats"></span></div>
+    <div class="row" id="tripMetrics" style="margin-bottom:8px"></div>
+    <canvas id="tripChart"></canvas>
+  </div>
+  <h3>Recorded trips</h3>
+  <div class="card" id="tripList"><div class="empty">No trips yet. Every connection is recorded automatically.</div></div>
+  <div class="row" style="margin-top:12px">
+    <button id="btnExportAll">Export all (JSON)</button>
+    <button class="danger" id="btnWipe">Delete all data</button>
+  </div>
+</section>
+
+<!-- SETUP -->
+<section id="setup">
+  <h3>Vehicle & adapter</h3>
+  <div class="card"><dl class="kv" id="info">
+    <dt>VIN</dt><dd id="i-vin">—</dd>
+    <dt>Protocol</dt><dd id="i-proto">—</dd>
+    <dt>Adapter</dt><dd id="i-adapter">—</dd>
+    <dt>Battery (adapter)</dt><dd id="i-volt">—</dd>
+    <dt>Supported PIDs</dt><dd id="i-pids">—</dd>
+    <dt>Storage</dt><dd id="i-store">—</dd>
+  </dl></div>
+  <h3>Mode</h3>
+  <div class="row">
+    <button id="btnDemo">Start demo mode</button>
+    <button id="btnDisconnect" disabled>Disconnect</button>
+  </div>
+  <h3>How to connect</h3>
+  <div class="card note">
+    1. Plug the <b>OBDLink CX</b> into the OBD port under the dash, driver's side, above the pedals.<br>
+    2. Turn ignition on (or start the engine).<br>
+    3. Open this page in a browser with <b>Web Bluetooth</b>: Chrome or Edge on Android, Mac, Windows or ChromeOS. On iPhone/iPad, Safari can't do this; use the <b>Bluefy</b> browser app.<br>
+    4. Tap <b>Connect</b> and pick the device named <b>OBDLink CX</b>. Don't pair it in phone Bluetooth settings first.<br>
+    5. Close the OBDLink / BimmerCode apps — only one app can talk to the adapter at a time.
+  </div>
+  <h3>Log</h3>
+  <div id="log"></div>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ---------- PID definitions (SAE J1979 mode 01) ---------- */
+const PIDS = {
+  rpm:     {pid:'0C',name:'Engine speed',unit:'rpm', fast:1,dec:0,min:0,max:7000, f:b=>(b[0]*256+b[1])/4},
+  speed:   {pid:'0D',name:'Speed',unit:'km/h',       fast:1,dec:0,min:0,max:250,  f:b=>b[0]},
+  throttle:{pid:'11',name:'Throttle',unit:'%',       fast:1,dec:0,min:0,max:100,  f:b=>b[0]*100/255},
+  load:    {pid:'04',name:'Engine load',unit:'%',    fast:1,dec:0,min:0,max:100,  f:b=>b[0]*100/255},
+  map:     {pid:'0B',name:'Manifold pressure',unit:'kPa',fast:1,dec:0,min:0,max:255,f:b=>b[0]},
+  coolant: {pid:'05',name:'Coolant',unit:'°C',dec:0,min:-40,max:130,warn:108,bad:115,f:b=>b[0]-40},
+  oil:     {pid:'5C',name:'Oil temp',unit:'°C',dec:0,min:-40,max:150,warn:130,bad:140,f:b=>b[0]-40},
+  iat:     {pid:'0F',name:'Intake air',unit:'°C',dec:0,min:-40,max:80,warn:55,bad:70,f:b=>b[0]-40},
+  ambient: {pid:'46',name:'Outside air',unit:'°C',dec:0,min:-40,max:60,f:b=>b[0]-40},
+  volt:    {pid:'42',name:'System voltage',unit:'V',dec:2,min:10,max:15,low:12.0,lowBad:11.6,f:b=>(b[0]*256+b[1])/1000},
+  fuel:    {pid:'2F',name:'Fuel level',unit:'%',dec:0,min:0,max:100,low:15,lowBad:8,f:b=>b[0]*100/255},
+  stft:    {pid:'06',name:'Short fuel trim',unit:'%',dec:1,min:-25,max:25,absWarn:15,absBad:20,f:b=>(b[0]-128)*100/128},
+  ltft:    {pid:'07',name:'Long fuel trim',unit:'%',dec:1,min:-25,max:25,absWarn:10,absBad:20,f:b=>(b[0]-128)*100/128},
+  timing:  {pid:'0E',name:'Ignition timing',unit:'°',dec:1,min:-20,max:50,f:b=>b[0]/2-64},
+  maf:     {pid:'10',name:'Air flow',unit:'g/s',dec:1,min:0,max:300,f:b=>(b[0]*256+b[1])/100},
+  baro:    {pid:'33',name:'Barometric',unit:'kPa',dec:0,min:60,max:110,f:b=>b[0]},
+  fuelrate:{pid:'5E',name:'Fuel rate',unit:'L/h',dec:1,min:0,max:60,f:b=>(b[0]*256+b[1])/20},
+  runtime: {pid:'1F',name:'Run time',unit:'s',dec:0,min:0,max:99999,f:b=>b[0]*256+b[1]},
+};
+const DERIVED = { boost:{name:'Boost',unit:'bar',dec:2,min:-1,max:1.5,warn:1.2,bad:1.4} };
+const TILE_ORDER = ['boost','coolant','oil','iat','volt','fuel','throttle','load','stft','ltft','timing','maf','fuelrate','ambient','baro','runtime'];
+const ALL = Object.assign({}, PIDS, DERIVED);
+
+/* Common BLE UART services used by ELM327-compatible adapters (OBDLink CX, Veepeak, Vgate, etc.) */
+const SERVICES = [0xfff0,0xffe0,0xffe5,0x18f0,0xfee7,0xae30,
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2','0000fff0-0000-1000-8000-00805f9b34fb',
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+
+/* Short descriptions for common generic codes on the N55 */
+const DTC_DESC = {
+  P0011:'Intake cam timing over-advanced (bank 1)',P0014:'Exhaust cam timing over-advanced (bank 1)',P0016:'Crank/cam position correlation',
+  P0101:'Mass/volume air flow range/performance',P0106:'Manifold pressure range/performance',P0128:'Coolant below thermostat temperature (thermostat)',
+  P0130:'O2 sensor circuit (bank 1 sensor 1)',P0171:'System too lean (bank 1)',P0172:'System too rich (bank 1)',
+  P0234:'Turbo overboost',P0299:'Turbo underboost',P0300:'Random/multiple misfire',P0301:'Misfire cylinder 1',P0302:'Misfire cylinder 2',
+  P0303:'Misfire cylinder 3',P0304:'Misfire cylinder 4',P0305:'Misfire cylinder 5',P0306:'Misfire cylinder 6',
+  P0420:'Catalyst efficiency below threshold (bank 1)',P0441:'EVAP purge flow incorrect',P0455:'EVAP large leak',P0456:'EVAP small leak',
+  P0491:'Secondary air system (bank 1)',P0562:'System voltage low',P0597:'Thermostat heater control open',P0600:'Serial communication link',
+  P1000:'BMW: drive cycle / readiness not complete',P0087:'Fuel rail pressure too low',P0088:'Fuel rail pressure too high',P0190:'Fuel rail pressure sensor circuit',
+  P0201:'Injector circuit cylinder 1',P0203:'Injector circuit cylinder 3',P0335:'Crankshaft position sensor A',P0340:'Camshaft position sensor A',
+  P0500:'Vehicle speed sensor',P0700:'Transmission control system (read with BMW app)',P2187:'Lean at idle (bank 1)',P2096:'Post-cat fuel trim too lean',
+};
+
+/* ---------- small helpers ---------- */
+const $ = s => document.querySelector(s);
+const fmt = (v,d) => v==null||isNaN(v) ? '—' : Number(v).toFixed(d);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function errText(e){ if(e==null) return 'unknown error'; if(typeof e==='string') return e; return [e.name,e.message].filter(Boolean).join(': ') || (e.toString&&e.toString()!=='[object Object]'?e.toString():JSON.stringify(e)) || 'unknown error'; }
+function log(m){ const el=$('#log'); const t=new Date().toLocaleTimeString(); el.textContent += `[${t}] ${m}\n`; el.scrollTop=el.scrollHeight; }
+
+/* ---------- Storage (IndexedDB, falls back to memory) ---------- */
+const Store = {
+  db:null, mem:{sessions:[],samples:[],dtc:[]}, seq:1,
+  async open(){
+    try{
+      this.db = await new Promise((res,rej)=>{
+        const r = indexedDB.open('x4-obd',1);
+        r.onupgradeneeded = ()=>{ const d=r.result;
+          d.createObjectStore('sessions',{keyPath:'id',autoIncrement:true});
+          d.createObjectStore('samples',{autoIncrement:true}).createIndex('sid','sid');
+          d.createObjectStore('dtc',{keyPath:'id',autoIncrement:true}); };
+        r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+      });
+      $('#i-store').textContent='On this device (IndexedDB)';
+    }catch(e){ this.db=null; $('#i-store').textContent='Memory only — data lost on reload'; }
+  },
+  tx(store,mode){ return this.db.transaction(store,mode).objectStore(store); },
+  req(r){ return new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async add(store,obj){
+    if(!this.db){ if(store!=='samples'){ obj.id = obj.id||this.seq++; } this.mem[store].push(obj); return obj.id; }
+    return this.req(this.tx(store,'readwrite').add(obj));
+  },
+  async put(store,obj){
+    if(!this.db){ const a=this.mem[store]; const i=a.findIndex(x=>x.id===obj.id); if(i>=0)a[i]=obj; else a.push(obj); return; }
+    return this.req(this.tx(store,'readwrite').put(obj));
+  },
+  async all(store){ if(!this.db) return this.mem[store].slice(); return this.req(this.tx(store,'readonly').getAll()); },
+  async samples(sid){
+    if(!this.db) return this.mem.samples.filter(s=>s.sid===sid);
+    return this.req(this.tx('samples','readonly').index('sid').getAll(sid));
+  },
+  async delSession(sid){
+    if(!this.db){ this.mem.sessions=this.mem.sessions.filter(s=>s.id!==sid); this.mem.samples=this.mem.samples.filter(s=>s.sid!==sid); return; }
+    await this.req(this.tx('sessions','readwrite').delete(sid));
+    const st=this.tx('samples','readwrite'); const keys=await this.req(st.index('sid').getAllKeys(sid));
+    const st2=this.tx('samples','readwrite'); for(const k of keys) st2.delete(k);
+  },
+  async wipe(){
+    if(!this.db){ this.mem={sessions:[],samples:[],dtc:[]}; return; }
+    for(const s of ['sessions','samples','dtc']) await this.req(this.tx(s,'readwrite').clear());
+  }
+};
+
+/* ---------- ELM327 over Web Bluetooth ---------- */
+class ELM {
+  constructor(){ this.buf=''; this.q=Promise.resolve(); this.resolver=null; this.dec=new TextDecoder(); this.enc=new TextEncoder(); }
+  async connect(){
+    if(!navigator.bluetooth) throw new Error('This browser has no Web Bluetooth. Use Chrome/Edge (Android, desktop) or Bluefy on iPhone.');
+    const step = async (name, fn) => { log('… '+name); try{ return await fn(); }catch(e){ throw new Error(name+' failed: '+errText(e)); } };
+    const full = u => typeof u==='number' ? '0000'+u.toString(16).padStart(4,'0')+'-0000-1000-8000-00805f9b34fb' : u;
+    this.dev = await step('Choose device', ()=>navigator.bluetooth.requestDevice({acceptAllDevices:true, optionalServices:SERVICES.map(full)}));
+    log('Selected '+(this.dev.name||'device'));
+    this.dev.addEventListener('gattserverdisconnected', ()=>App.onDisconnected());
+    const server = await step('GATT connect', ()=>this.dev.gatt.connect());
+    await sleep(300);
+    let svcs=[];
+    try{ svcs = await server.getPrimaryServices(); log('Found '+svcs.length+' services'); }
+    catch(e){ log('List services not supported ('+errText(e)+'), probing known UUIDs'); }
+    if(!svcs.length){
+      for(const u of SERVICES){ try{ svcs.push(await server.getPrimaryService(full(u))); log('Service '+full(u)+' found'); }catch(e){} }
+    }
+    if(!svcs.length) throw new Error('Connected, but no OBD serial service found. Device may not be an OBD BLE adapter.');
+    let rx=null, tx=null;
+    for(const s of svcs){
+      let chars=[]; try{ chars=await s.getCharacteristics(); }catch(e){ log('Chars of '+s.uuid+': '+errText(e)); continue; }
+      log('Service '+s.uuid+': '+chars.map(c=>c.uuid.slice(4,8)+'['+(c.properties.notify?'N':'')+(c.properties.indicate?'I':'')+(c.properties.write?'W':'')+(c.properties.writeWithoutResponse?'w':'')+']').join(' '));
+      const n = chars.find(c=>c.properties.notify||c.properties.indicate);
+      const w = chars.find(c=>c.properties.write||c.properties.writeWithoutResponse);
+      if(n && w){ rx=n; tx=w; log('Using '+n.uuid.slice(4,8)+' (rx) / '+w.uuid.slice(4,8)+' (tx)'); break; }
+      rx = rx||n; tx = tx||w;
+    }
+    if(!rx||!tx) throw new Error('No serial characteristics found on this device.');
+    this.rx=rx; this.tx=tx;
+    rx.addEventListener('characteristicvaluechanged', e=>this.onData(e.target.value));
+    try{ await rx.startNotifications(); }catch(e){ throw new Error('Start notifications failed: '+errText(e)); }
+    log('Bluetooth link ready');
+  }
+  onData(dv){
+    this.buf += this.dec.decode(dv);
+    if(this.buf.includes('>') && this.resolver){ const r=this.buf; this.buf=''; this.resolver(r); }
+  }
+  send(cmd, timeout=3000){
+    const p = this.q.then(()=>new Promise(async res=>{
+      this.buf=''; let done=false;
+      const t=setTimeout(()=>{ if(!done){ done=true; this.resolver=null; res(''); } }, timeout);
+      this.resolver = r=>{ if(done) return; done=true; clearTimeout(t); this.resolver=null; res(r); };
+      try{
+        const bytes=this.enc.encode(cmd+'\r');
+        for(let i=0;i<bytes.length;i+=20){
+          const c=bytes.slice(i,i+20);
+          if(this.tx.properties.writeWithoutResponse) await this.tx.writeValueWithoutResponse(c);
+          else await this.tx.writeValueWithResponse(c);
+        }
+      }catch(e){ if(!done){ done=true; clearTimeout(t); this.resolver=null; res(''); } }
+    }));
+    this.q = p.catch(()=>{});
+    return p.then(r=>cleanLines(r,cmd));
+  }
+  disconnect(){ try{ this.dev && this.dev.gatt.connected && this.dev.gatt.disconnect(); }catch(e){} }
+}
+function cleanLines(r,cmd){
+  return r.replace(/>/g,'').replace(/SEARCHING\.\.\./gi,'').split(/[\r\n]+/).map(s=>s.trim())
+    .filter(s=>s && s.replace(/\s/g,'').toUpperCase()!==cmd.replace(/\s/g,'').toUpperCase());
+}
+const hexLines = lines => lines.map(l=>l.replace(/\s/g,'').toUpperCase()).filter(l=>/^[0-9A-F:]+$/.test(l));
+function parseMode01(lines,pid){
+  for(const l of hexLines(lines)){
+    const s=l.replace(/^[0-9A-F]:/,''); const i=s.indexOf('41'+pid);
+    if(i>=0){ const h=s.slice(i+4); const b=[]; for(let j=0;j+1<h.length;j+=2) b.push(parseInt(h.substr(j,2),16)); if(b.length) return b; }
+  }
+  return null;
+}
+function decodeDTC(h){ const a=parseInt(h.slice(0,2),16); return 'PCBU'[a>>6] + ((a>>4)&3) + (a&15).toString(16).toUpperCase() + h.slice(2,4).toUpperCase(); }
+function parseDTC(lines,mode,isCan){
+  const want=(0x40+parseInt(mode,16)).toString(16).toUpperCase(); let hex='';
+  const L=hexLines(lines).filter(l=>!/^[0-9A-F]{3}$/.test(l)).map(l=>l.replace(/^[0-9A-F]:/,''));
+  for(const f of L){
+    if(isCan){ hex += f.startsWith(want) ? f.slice(4) : f; }
+    else if(f.startsWith(want)) hex += f.slice(2);
+  }
+  const out=[]; for(let i=0;i+4<=hex.length;i+=4){ const c=hex.substr(i,4); if(c!=='0000') out.push(decodeDTC(c)); }
+  return [...new Set(out)];
+}
+function parseVIN(lines){
+  const hex=hexLines(lines).filter(l=>!/^[0-9A-F]{3}$/.test(l)).map(l=>l.replace(/^[0-9A-F]:/,'')).join('');
+  let s=''; for(let i=0;i+1<hex.length;i+=2) s+=String.fromCharCode(parseInt(hex.substr(i,2),16));
+  s=s.replace(/[^A-HJ-NPR-Z0-9]/g,''); return s.length>=17 ? s.slice(-17) : null;
+}
+
+/* ---------- Demo source ---------- */
+class Demo {
+  constructor(){ this.t=0; this.speed=0; this.rpm=750; this.cool=45; this.oil=40; this.fuel=62; this.ltft=2.3; }
+  step(dt){
+    this.t+=dt; const ph=(this.t%60)/60;
+    let target = ph<.1?0 : ph<.35?60+40*Math.sin(this.t/3) : ph<.45?120 : ph<.7?80+10*Math.sin(this.t) : ph<.85?40 : 0;
+    const prev=this.speed; this.speed += (target-this.speed)*Math.min(1,dt*.6);
+    const accel=(this.speed-prev)/dt;
+    const gear = this.speed<15?1:this.speed<35?2:this.speed<55?3:this.speed<75?4:this.speed<100?5:this.speed<130?6:7;
+    this.rpm = this.speed<2 ? 720+Math.random()*30 : Math.max(900, this.speed*[0,110,70,48,38,30,25,21][gear]);
+    const thr = Math.max(0, Math.min(100, 12+accel*9+Math.random()*3));
+    this.cool += ((this.t>90?104:45+this.t*0.65)-this.cool)*dt*.05; this.oil += ((this.t>120?112:40+this.t*.6)-this.oil)*dt*.03;
+    this.fuel = Math.max(5, this.fuel - dt*0.004);
+    const map = 30 + thr*1.5 + (thr>40?(thr-40)*1.2:0);
+    return { rpm:this.rpm, speed:this.speed, throttle:thr, load:Math.min(100,thr*1.1+15), map, baro:101,
+      coolant:this.cool, oil:this.oil, iat:28+thr*.08, ambient:24, volt:this.rpm>500?14.1+Math.random()*.1:12.4,
+      fuel:this.fuel, stft:(Math.random()-.5)*6, ltft:this.ltft, timing:8+thr*.15+Math.random()*2,
+      maf:3+this.rpm*map/9000, fuelrate:0.8+thr*0.25, runtime:Math.round(this.t) };
+  }
+}
+
+/* ---------- Charts ---------- */
+function drawChart(canvas, pts, key, opts={}){
+  const def=ALL[key]; const dpr=window.devicePixelRatio||1;
+  const w=canvas.clientWidth, h=canvas.clientHeight; canvas.width=w*dpr; canvas.height=h*dpr;
+  const c=canvas.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,w,h);
+  const padL=40,padR=8,padT=8,padB=20, pw=w-padL-padR, ph=h-padT-padB;
+  const data=pts.filter(p=>p.v!=null&&!isNaN(p.v));
+  c.font='11px ui-monospace,Menlo,monospace'; c.fillStyle='#8a94a3';
+  if(data.length<2){ c.fillText('Waiting for data…',padL,padT+ph/2); return; }
+  const t0=data[0].t, t1=data[data.length-1].t;
+  let lo=Math.min(...data.map(p=>p.v)), hi=Math.max(...data.map(p=>p.v));
+  if(hi-lo<1e-6){ hi+=1; lo-=1; } const padv=(hi-lo)*.1; lo-=padv; hi+=padv;
+  const X=t=>padL+(t-t0)/Math.max(1,t1-t0)*pw, Y=v=>padT+(1-(v-lo)/(hi-lo))*ph;
+  c.strokeStyle='#262c35'; c.lineWidth=1; c.textAlign='right'; c.textBaseline='middle';
+  for(let i=0;i<=3;i++){ const v=lo+(hi-lo)*i/3, y=Y(v); c.beginPath(); c.moveTo(padL,y); c.lineTo(w-padR,y); c.stroke(); c.fillText(fmt(v,def.dec>0?1:0),padL-6,y); }
+  c.textAlign='left'; c.textBaseline='top';
+  const span=(t1-t0)/1000; c.fillText(span<120?`${Math.round(span)} s`:`${(span/60).toFixed(1)} min`, padL, h-14);
+  const g=c.createLinearGradient(0,padT,0,padT+ph); g.addColorStop(0,'rgba(61,139,253,.28)'); g.addColorStop(1,'rgba(61,139,253,0)');
+  c.beginPath(); data.forEach((p,i)=>i?c.lineTo(X(p.t),Y(p.v)):c.moveTo(X(p.t),Y(p.v)));
+  c.strokeStyle='#3d8bfd'; c.lineWidth=2; c.lineJoin='round'; c.stroke();
+  c.lineTo(X(t1),padT+ph); c.lineTo(X(t0),padT+ph); c.closePath(); c.fillStyle=g; c.fill();
+  if(def.warn!=null && def.warn<hi && def.warn>lo){ c.setLineDash([4,4]); c.strokeStyle='rgba(240,160,32,.6)'; c.beginPath(); c.moveTo(padL,Y(def.warn)); c.lineTo(w-padR,Y(def.warn)); c.stroke(); c.setLineDash([]); }
+}
+function sparkPath(vals,w=100,h=26){
+  const v=vals.filter(x=>x!=null&&!isNaN(x)); if(v.length<2) return '';
+  let lo=Math.min(...v), hi=Math.max(...v); if(hi-lo<1e-6){hi+=1;lo-=1;}
+  return v.map((x,i)=>`${i?'L':'M'}${(i/(v.length-1)*w).toFixed(1)},${(h-2-(x-lo)/(hi-lo)*(h-4)).toFixed(1)}`).join('');
+}
+function gaugeSVG(key,val){
+  const d=ALL[key]; const frac=Math.max(0,Math.min(1,((val??d.min)-d.min)/(d.max-d.min)));
+  const R=80,cx=100,cy=100,a0=Math.PI*0.75,a1=Math.PI*2.25, a=a0+(a1-a0)*frac;
+  const P=ang=>[cx+R*Math.cos(ang), cy+R*Math.sin(ang)];
+  const arc=(s,e,col,wd)=>{ const [x0,y0]=P(s),[x1,y1]=P(e); const large=(e-s)>Math.PI?1:0; return `<path d="M${x0} ${y0} A${R} ${R} 0 ${large} 1 ${x1} ${y1}" stroke="${col}" stroke-width="${wd}" fill="none" stroke-linecap="round"/>`; };
+  let ticks=''; const n= key==='rpm'?7:5;
+  for(let i=0;i<=n;i++){ const ang=a0+(a1-a0)*i/n; const [x,y]=[cx+(R-20)*Math.cos(ang), cy+(R-20)*Math.sin(ang)];
+    ticks+=`<text x="${x}" y="${y}" fill="#8a94a3" font-size="10" text-anchor="middle" dominant-baseline="middle" font-family="ui-monospace,Menlo,monospace">${key==='rpm'?i:Math.round(d.min+(d.max-d.min)*i/n)}</text>`; }
+  const redStart = key==='rpm' ? a0+(a1-a0)*(6500/7000) : null;
+  const col = key==='rpm' && val>6000 ? '#ef4b4b' : '#3d8bfd';
+  return `<svg viewBox="0 0 200 175">${arc(a0,a1,'#262c35',12)}${redStart?arc(redStart,a1,'rgba(228,0,43,.55)',12):''}${frac>0.002?arc(a0,a,col,12):''}${ticks}
+    <text x="100" y="112" fill="#e8ecf1" font-size="34" font-weight="600" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">${fmt(val,0)}</text>
+    <text x="100" y="134" fill="#8a94a3" font-size="12" text-anchor="middle">${key==='rpm'?'rpm':'km/h'}</text>
+    <text x="100" y="170" fill="#8a94a3" font-size="12" text-anchor="middle">${d.name}</text></svg>`;
+}
+
+/* ---------- App ---------- */
+const App = {
+  elm:null, demo:null, running:false, isCan:true, supported:new Set(), vals:{}, hist:{}, session:null,
+  lastStore:0, selected:'rpm', tripSel:null, tripMetric:'speed', tripSamples:[],
+
+  async init(){
+    await Store.open();
+    document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>this.tab(b.dataset.tab));
+    $('#btnConnect').onclick=()=>this.running?this.stop():this.connect();
+    $('#btnDisconnect').onclick=()=>this.stop();
+    $('#btnDemo').onclick=()=>this.running?null:this.startDemo();
+    $('#btnRead').onclick=()=>this.readDTC();
+    $('#btnClear').onclick=()=>this.clearDTC();
+    $('#btnExportAll').onclick=()=>this.exportAll();
+    $('#btnWipe').onclick=async()=>{ if(confirm('Delete every recorded trip and fault scan on this device?')){ await Store.wipe(); this.renderTrips(); this.renderDTCHistory(); } };
+    this.buildTiles(); this.renderLive(); this.renderTrips(); this.renderDTCHistory();
+    window.addEventListener('resize',()=>{ this.renderChart(); this.renderTripChart(); });
+    if(!navigator.bluetooth) log('Web Bluetooth not available in this browser — demo mode only.');
+  },
+  tab(t){ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.dataset.tab===t));
+    document.querySelectorAll('main section').forEach(s=>s.classList.toggle('act',s.id===t));
+    if(t==='live') this.renderChart(); if(t==='trips') this.renderTripChart(); },
+  setStatus(txt,cls){ const s=$('#status'); s.textContent=txt; s.className='pill '+(cls||''); },
+
+  async connect(){
+    try{
+      this.setStatus('Connecting…'); this.elm=new ELM(); await this.elm.connect();
+      $('#i-adapter').textContent=this.elm.dev.name||'BLE adapter';
+      this.setStatus('Initialising…');
+      const id=await this.elm.send('ATZ',5000); log('ATZ → '+id.join(' '));
+      for(const c of ['ATE0','ATL0','ATS0','ATH0','ATAT1','ATSP0']) await this.elm.send(c);
+      const sup0=await this.elm.send('0100',10000);
+      const b0=parseMode01(sup0,'00');
+      if(!b0){ throw new Error('Car not responding. Is the ignition on? Response: '+sup0.join(' ')); }
+      const dp=(await this.elm.send('ATDPN')).join('').replace(/^A/,''); const pn=parseInt(dp,16);
+      this.isCan = pn>=6; $('#i-proto').textContent=(await this.elm.send('ATDP')).join(' ')||dp;
+      this.addSupported(0,b0);
+      for(const base of [0x20,0x40]){ if(!this.supported.has(base)) break;
+        const r=parseMode01(await this.elm.send('01'+base.toString(16).toUpperCase().padStart(2,'0'),4000), base.toString(16).toUpperCase().padStart(2,'0'));
+        if(r) this.addSupported(base,r); else break; }
+      const rv=(await this.elm.send('ATRV')).join(''); $('#i-volt').textContent=rv||'—';
+      const vin=parseVIN(await this.elm.send('0902',5000)); this.vin=vin; $('#i-vin').textContent=vin||'not reported';
+      const keys=Object.keys(PIDS).filter(k=>this.supported.has(parseInt(PIDS[k].pid,16)));
+      $('#i-pids').textContent=keys.length+' of '+Object.keys(PIDS).length+': '+keys.join(', ');
+      log('Supported: '+keys.join(', '));
+      this.pollKeys=keys; this.buildTiles();
+      await this.beginSession('car');
+      this.setStatus('Live','on'); $('#sub').textContent=`F26 · N55 3.0L turbo · ${vin?'VIN …'+vin.slice(-7):'connected'}`;
+      this.loop();
+      this.readDTC(true);
+    }catch(e){
+      const msg=errText(e); log('Error: '+msg); this.setStatus('Error'); this.elm&&this.elm.disconnect();
+      $('#health').innerHTML=`<span class="dot bad"></span><span>Couldn't connect: ${msg.replace(/</g,'&lt;')} — see Setup → Log.</span>`;
+    }
+  },
+  addSupported(base,b){ for(let i=0;i<32;i++) if(b[i>>3] & (0x80>>(i&7))) this.supported.add(base+i+1); },
+
+  async beginSession(src){
+    this.running=true; this.hist={}; this.vals={};
+    this.session={start:Date.now(), end:Date.now(), src, vin:this.vin||null, maxSpeed:0, maxRpm:0, maxCoolant:null, n:0};
+    this.session.id = await Store.add('sessions', this.session);
+    $('#btnConnect').textContent='Stop'; $('#btnDisconnect').disabled=false; $('#btnDemo').disabled=true;
+  },
+  async endSession(){
+    this.running=false;
+    if(this.session){ this.session.end=Date.now(); await Store.put('sessions',this.session); this.session=null; }
+    $('#btnConnect').textContent='Connect'; $('#btnDisconnect').disabled=true; $('#btnDemo').disabled=false;
+    this.setStatus('Offline'); this.renderTrips();
+  },
+  async stop(){ this.elm&&this.elm.disconnect(); this.demo=null; await this.endSession(); },
+  onDisconnected(){ log('Adapter disconnected'); if(this.running) this.endSession(); },
+
+  async loop(){
+    let slowIdx=0;
+    const fast=this.pollKeys.filter(k=>PIDS[k].fast), slow=this.pollKeys.filter(k=>!PIDS[k].fast);
+    while(this.running && this.elm){
+      for(const k of fast) await this.read(k);
+      if(slow.length) await this.read(slow[slowIdx++ % slow.length]);
+      this.tick();
+      if(!this.elm.dev.gatt.connected) break;
+    }
+  },
+  async read(k){
+    const d=PIDS[k]; const b=parseMode01(await this.elm.send('01'+d.pid,2000), d.pid);
+    if(b){ try{ this.vals[k]=d.f(b); }catch(e){} }
+  },
+  startDemo(){
+    this.demo=new Demo(); this.vin='DEMO'; this.pollKeys=Object.keys(PIDS); this.buildTiles();
+    $('#i-vin').textContent='Demo data'; $('#i-proto').textContent='Simulated'; $('#i-adapter').textContent='—';
+    this.beginSession('demo').then(()=>{
+      this.setStatus('Demo','demo'); this.tab('live');
+      let last=performance.now();
+      const step=()=>{ if(!this.running||!this.demo) return; const now=performance.now();
+        Object.assign(this.vals,this.demo.step((now-last)/1000)); last=now; this.tick(); setTimeout(step,250); };
+      step();
+    });
+  },
+
+  tick(){
+    const v=this.vals;
+    if(v.map!=null) v.boost=(v.map-(v.baro??101))/100;
+    const now=Date.now();
+    for(const k in v){ (this.hist[k]=this.hist[k]||[]).push({t:now,v:v[k]}); if(this.hist[k].length>600) this.hist[k].shift(); }
+    if(now-this.lastStore>=1000 && this.session){
+      this.lastStore=now; const snap={}; for(const k in v) snap[k]=+Number(v[k]).toFixed(3);
+      Store.add('samples',{sid:this.session.id,t:now,v:snap});
+      const s=this.session; s.n++; s.end=now; s.maxSpeed=Math.max(s.maxSpeed,v.speed||0); s.maxRpm=Math.max(s.maxRpm,v.rpm||0);
+      if(v.coolant!=null) s.maxCoolant=Math.max(s.maxCoolant??-99,v.coolant);
+      if(s.n%10===0) Store.put('sessions',s);
+    }
+    this.renderLive();
+  },
+
+  /* ---------- live rendering ---------- */
+  state(k,v){
+    const d=ALL[k]; if(v==null) return '';
+    if(d.bad!=null&&v>=d.bad) return 'bad'; if(d.warn!=null&&v>=d.warn) return 'warn';
+    if(d.lowBad!=null&&v<=d.lowBad) return 'bad'; if(d.low!=null&&v<=d.low) return 'warn';
+    if(d.absBad!=null&&Math.abs(v)>=d.absBad) return 'bad'; if(d.absWarn!=null&&Math.abs(v)>=d.absWarn) return 'warn';
+    return '';
+  },
+  buildTiles(){
+    const avail=new Set([...(this.pollKeys||[]),'boost']);
+    $('#tiles').innerHTML = TILE_ORDER.map(k=>{ const d=ALL[k]; const na=this.pollKeys&&!avail.has(k)&&!(k==='boost'&&avail.has('map'));
+      return `<div class="tile${na?' na':''}" data-k="${k}"><div class="n">${d.name}</div><div class="x"><span>—</span><small>${d.unit}</small></div><svg viewBox="0 0 100 26" preserveAspectRatio="none"><path fill="none" stroke="#3d8bfd" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div>`; }).join('');
+    document.querySelectorAll('.tile').forEach(t=>t.onclick=()=>{ this.selected=t.dataset.k; this.renderLive(); });
+  },
+  renderLive(){
+    const v=this.vals;
+    $('#g-rpm').innerHTML=gaugeSVG('rpm',v.rpm); $('#g-speed').innerHTML=gaugeSVG('speed',v.speed);
+    document.querySelectorAll('.tile').forEach(t=>{
+      const k=t.dataset.k, d=ALL[k], val=v[k];
+      t.querySelector('.x span').textContent=fmt(val,d.dec);
+      t.className='tile '+this.state(k,val)+(this.selected===k?' sel':'')+(t.classList.contains('na')?' na':'');
+      t.querySelector('path').setAttribute('d',sparkPath((this.hist[k]||[]).slice(-60).map(p=>p.v)));
+    });
+    this.renderChart(); this.renderHealth();
+  },
+  renderChart(){
+    const k=this.selected, d=ALL[k], pts=this.hist[k]||[];
+    $('#chartTitle').textContent=d.name+' ('+d.unit+')';
+    if(pts.length){ const vs=pts.map(p=>p.v); $('#chartStats').textContent=`min ${fmt(Math.min(...vs),d.dec)} · max ${fmt(Math.max(...vs),d.dec)}`; }
+    drawChart($('#chart'),pts,k);
+  },
+  renderHealth(){
+    const v=this.vals; const issues=[];
+    for(const k of TILE_ORDER){ const s=this.state(k,v[k]); if(s) issues.push({s,txt:`${ALL[k].name} ${fmt(v[k],ALL[k].dec)} ${ALL[k].unit}`}); }
+    if(this.mil) issues.unshift({s:'bad',txt:`Check-engine light on (${this.dtcCount} code${this.dtcCount===1?'':'s'})`});
+    const el=$('#health');
+    if(!this.running){ el.innerHTML='<span class="dot"></span><span>Connect the adapter or start demo mode from Setup.</span>'; return; }
+    if(v.coolant!=null && v.coolant<70 && !issues.length){ el.innerHTML='<span class="dot warn"></span><span>Engine warming up — go easy until coolant reaches ~80 °C.</span>'; return; }
+    if(!issues.length){ el.innerHTML='<span class="dot ok"></span><span>All monitored values normal.</span>'; return; }
+    const worst=issues.some(i=>i.s==='bad')?'bad':'warn';
+    el.innerHTML=`<span class="dot ${worst}"></span><span>${issues.map(i=>i.txt).join(' · ')}</span>`;
+  },
+
+  /* ---------- faults ---------- */
+  async readDTC(silent){
+    if(this.demo){ this.showDTC({stored:['P0171'],pending:['P0300'],perm:[]},{mil:false,count:1}); return; }
+    if(!this.running||!this.elm){ if(!silent) alert('Connect to the car first.'); return; }
+    $('#btnRead').disabled=true;
+    try{
+      const st=parseMode01(await this.elm.send('0101',3000),'01');
+      const milInfo = st ? {mil:!!(st[0]&0x80), count:st[0]&0x7f} : null;
+      const res={ stored:parseDTC(await this.elm.send('03',5000),'03',this.isCan),
+                  pending:parseDTC(await this.elm.send('07',5000),'07',this.isCan),
+                  perm:parseDTC(await this.elm.send('0A',5000),'0A',this.isCan) };
+      this.showDTC(res,milInfo);
+    }finally{ $('#btnRead').disabled=false; }
+  },
+  async showDTC(res,mil){
+    const render=(el,arr)=>{ $(el).innerHTML = arr.length ? arr.map(c=>`<div class="dtc"><code>${c}</code><div><div class="d">${DTC_DESC[c]||'Generic powertrain code — look up for N55 specifics'}</div><div class="k">${c[0]==='P'?'Powertrain':c[0]==='C'?'Chassis':c[0]==='B'?'Body':'Network'} · ${c[1]==='0'?'generic SAE':'manufacturer-specific'}</div></div></div>`).join('') : '<div class="empty">None ✓</div>'; };
+    render('#dtcStored',res.stored); render('#dtcPending',res.pending); render('#dtcPerm',res.perm);
+    if(mil){ this.mil=mil.mil; this.dtcCount=mil.count; }
+    const total=res.stored.length+res.pending.length+res.perm.length;
+    $('#milBanner').innerHTML = this.mil ? `<span class="dot bad"></span><span>Check-engine light is <b>ON</b> · ${this.dtcCount} confirmed code(s)</span>`
+      : total ? `<span class="dot warn"></span><span>Check-engine light off, but ${total} code(s) logged</span>`
+      : `<span class="dot ok"></span><span>No engine fault codes. Check-engine light off.</span>`;
+    await Store.add('dtc',{t:Date.now(),vin:this.vin||null,...res,mil:!!this.mil});
+    this.renderDTCHistory();
+  },
+  async clearDTC(){
+    if(this.demo){ this.showDTC({stored:[],pending:[],perm:[]},{mil:false,count:0}); return; }
+    if(!this.running||!this.elm) return alert('Connect to the car first.');
+    if(!confirm('Clear engine fault codes and turn off the check-engine light?\n\nThis also resets emissions readiness monitors. Do it with the engine OFF, ignition ON. Codes will return if the fault is still present.')) return;
+    const r=await this.elm.send('04',5000); log('04 → '+r.join(' '));
+    await sleep(500); this.readDTC();
+  },
+  async renderDTCHistory(){
+    const all=(await Store.all('dtc')).sort((a,b)=>b.t-a.t).slice(0,20);
+    $('#dtcHistory').innerHTML = all.length ? all.map(s=>{ const codes=[...s.stored,...s.pending.map(c=>c+' (pend)'),...s.perm.map(c=>c+' (perm)')];
+      return `<div class="trip"><div class="i"><b>${new Date(s.t).toLocaleString()}</b><span>${codes.length?codes.join(', '):'No codes'}${s.mil?' · MIL on':''}</span></div></div>`; }).join('') : '<div class="empty">No scans saved.</div>';
+  },
+
+  /* ---------- trips ---------- */
+  async renderTrips(){
+    const ss=(await Store.all('sessions')).sort((a,b)=>b.start-a.start);
+    if(!ss.length){ $('#tripList').innerHTML='<div class="empty">No trips yet. Every connection is recorded automatically.</div>'; return; }
+    $('#tripList').innerHTML = ss.map(s=>{ const dur=Math.max(0,(s.end-s.start)/60000);
+      return `<div class="trip"><div class="i"><b>${new Date(s.start).toLocaleString()}${s.src==='demo'?' · demo':''}</b>
+        <span>${dur.toFixed(1)} min · max ${Math.round(s.maxSpeed||0)} km/h · ${Math.round(s.maxRpm||0)} rpm${s.maxCoolant!=null?' · coolant '+Math.round(s.maxCoolant)+' °C':''}</span></div>
+        <button data-v="${s.id}">View</button><button data-c="${s.id}">CSV</button><button class="danger" data-d="${s.id}">✕</button></div>`; }).join('');
+    $('#tripList').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>this.openTrip(+b.dataset.v));
+    $('#tripList').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>this.exportCSV(+b.dataset.c));
+    $('#tripList').querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{ if(confirm('Delete this trip?')){ await Store.delSession(+b.dataset.d); if(this.tripSel===+b.dataset.d){this.tripSel=null;this.tripSamples=[];this.renderTripChart();} this.renderTrips(); } });
+  },
+  async openTrip(id){
+    this.tripSel=id; this.tripSamples=(await Store.samples(id)).sort((a,b)=>a.t-b.t);
+    const keys=new Set(); this.tripSamples.forEach(s=>Object.keys(s.v).forEach(k=>keys.add(k)));
+    const order=['speed','rpm',...TILE_ORDER].filter((k,i,a)=>keys.has(k)&&a.indexOf(k)===i);
+    if(!keys.has(this.tripMetric)) this.tripMetric=order[0]||'speed';
+    $('#tripMetrics').innerHTML=order.map(k=>`<button data-m="${k}" style="padding:5px 9px;font-size:12px;${k===this.tripMetric?'border-color:#3d8bfd;color:#fff':''}">${ALL[k].name}</button>`).join('');
+    $('#tripMetrics').querySelectorAll('button').forEach(b=>b.onclick=()=>{ this.tripMetric=b.dataset.m; this.openTrip(id); });
+    this.renderTripChart();
+  },
+  renderTripChart(){
+    const k=this.tripMetric, d=ALL[k];
+    if(!this.tripSel){ $('#tripChartTitle').textContent='Select a trip'; $('#tripChartStats').textContent=''; drawChart($('#tripChart'),[],'speed'); return; }
+    const pts=this.tripSamples.map(s=>({t:s.t,v:s.v[k]}));
+    $('#tripChartTitle').textContent=d.name+' ('+d.unit+')';
+    const vs=pts.map(p=>p.v).filter(x=>x!=null);
+    $('#tripChartStats').textContent=vs.length?`avg ${fmt(vs.reduce((a,b)=>a+b,0)/vs.length,d.dec)} · max ${fmt(Math.max(...vs),d.dec)}`:'';
+    drawChart($('#tripChart'),pts,k);
+  },
+  download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); },
+  async exportCSV(id){
+    const rows=(await Store.samples(id)).sort((a,b)=>a.t-b.t); if(!rows.length) return alert('No samples in this trip.');
+    const keys=[...new Set(rows.flatMap(r=>Object.keys(r.v)))];
+    const csv=['time,'+keys.map(k=>`${k} (${ALL[k]?.unit||''})`).join(','), ...rows.map(r=>new Date(r.t).toISOString()+','+keys.map(k=>r.v[k]??'').join(','))].join('\n');
+    this.download(`x4-trip-${id}.csv`,csv,'text/csv');
+  },
+  async exportAll(){
+    const sessions=await Store.all('sessions'), dtc=await Store.all('dtc'); const samples={};
+    for(const s of sessions) samples[s.id]=await Store.samples(s.id);
+    this.download('x4-obd-export.json',JSON.stringify({exported:new Date().toISOString(),sessions,samples,dtc}),'application/json');
+  }
+};
+App.init();
+</script>
+</body>
+</html>
